@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: production-service
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: production-service
+  template:
+    metadata:
+      labels:
+        app: production-service
+    spec:
+      containers:
+      - name: production-service
+        image: ghcr.io/cassiamartinelli-fc/production-service:latest
+        ports:
+        - containerPort: 3002
+        envFrom:
+        - configMapRef:
+            name: production-service-config
+        - secretRef:
+            name: production-service-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 10

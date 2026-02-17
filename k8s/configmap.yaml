@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: production-service-config
+data:
+  NODE_ENV: "production"
+  PORT: "3002"
+  AWS_REGION: "us-east-1"
