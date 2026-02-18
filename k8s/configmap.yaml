@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: production-service-config
+  namespace: default
 data:
   NODE_ENV: "production"
   PORT: "3002"
