@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: production-service
   namespace: default
+  labels:
+    app: production-service
 spec:
   replicas: 1
   selector:
@@ -16,8 +18,10 @@ spec:
       containers:
       - name: production-service
         image: ghcr.io/cassiamartinelli-fc/production-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 3002
+          name: http
         envFrom:
         - configMapRef:
             name: production-service-config
@@ -35,8 +39,14 @@ spec:
             path: /health
             port: 3002
           initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 3002
           initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3

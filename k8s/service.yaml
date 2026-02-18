@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: production-service
   namespace: default
+  labels:
+    app: production-service
 spec:
   type: ClusterIP
   selector:
@@ -11,3 +13,4 @@ spec:
   - port: 3002
     targetPort: 3002
     protocol: TCP
+    name: http
