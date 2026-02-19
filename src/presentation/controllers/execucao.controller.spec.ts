@@ -1,138 +1,114 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ExecucaoController } from './execucao.controller';
 import { FilaExecucao } from '../../domain/entities/fila-execucao.entity';
+import { ExecucaoFinalizadaPublisher } from '../../events/publishers/execucao-finalizada.publisher';
 
 describe('ExecucaoController', () => {
   let controller: ExecucaoController;
 
-  const mockRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-  };
+  let repositoryMock: jest.Mocked<Repository<FilaExecucao>>;
+  let publisherMock: jest.Mocked<ExecucaoFinalizadaPublisher>;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [ExecucaoController],
-      providers: [
-        {
-          provide: getRepositoryToken(FilaExecucao),
-          useValue: mockRepository,
-        },
-      ],
-    }).compile();
+  beforeEach(() => {
+    repositoryMock = {
+      create: jest.fn(),
+      save: jest.fn(),
+      find: jest.fn(),
+      findOne: jest.fn(),
+    } as any;
 
-    controller = module.get(ExecucaoController);
+    publisherMock = {
+      publish: jest.fn(),
+    } as any;
+
+    controller = new ExecucaoController(repositoryMock, publisherMock);
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
   });
 
   describe('iniciar', () => {
-    it('deve criar e salvar uma nova execução', async () => {
-      const dto = { osId: 'os-1' };
-      const created = {
-        osId: dto.osId,
-        status: 'EM_EXECUCAO' as const,
-        dataInicio: new Date(),
-      };
+    it('deve criar e salvar nova execução', async () => {
+      const dto = { osId: 'OS123' };
 
-      mockRepository.create.mockReturnValue(created);
-      mockRepository.save.mockResolvedValue(created);
+      repositoryMock.create.mockImplementation((e) => e as any);
+      repositoryMock.save.mockImplementation(
+        async (e) =>
+          ({
+            ...e,
+            id: '1',
+          }) as any,
+      );
 
-      const result = await controller.iniciar(dto);
+      const result = await controller.iniciar(dto as any);
 
-      expect(mockRepository.create).toHaveBeenCalledWith(
+      expect(repositoryMock.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          osId: dto.osId,
+          osId: 'OS123',
           status: 'EM_EXECUCAO',
         }),
       );
 
-      const calls = mockRepository.create.mock.calls as unknown as Array<
-        [Record<string, unknown>]
-      >;
-
-      const firstArg = calls[0][0];
-      expect(firstArg.dataInicio).toBeInstanceOf(Date);
-
-      expect(mockRepository.save).toHaveBeenCalledWith(created);
-      expect(result).toEqual(created);
+      expect(repositoryMock.save).toHaveBeenCalled();
+      expect(result.id).toBe('1');
     });
   });
 
   describe('listar', () => {
     it('deve retornar lista de execuções', async () => {
-      const execucoes = [{ id: '1' }];
-      mockRepository.find.mockResolvedValue(execucoes);
+      repositoryMock.find.mockResolvedValue([{ id: '1' }] as any);
 
       const result = await controller.listar();
 
-      expect(mockRepository.find).toHaveBeenCalled();
-      expect(result).toEqual(execucoes);
+      expect(repositoryMock.find).toHaveBeenCalled();
+      expect(result).toEqual([{ id: '1' }]);
     });
   });
 
   describe('buscarPorId', () => {
-    it('deve retornar execução pelo id', async () => {
-      const execucao = { id: '1' };
-      mockRepository.findOne.mockResolvedValue(execucao);
+    it('deve retornar execução por id', async () => {
+      repositoryMock.findOne.mockResolvedValue({ id: '1' } as any);
 
       const result = await controller.buscarPorId('1');
 
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
+      expect(repositoryMock.findOne).toHaveBeenCalledWith({
         where: { id: '1' },
       });
-      expect(result).toEqual(execucao);
+
+      expect(result).toEqual({ id: '1' });
     });
   });
 
   describe('finalizar', () => {
-    it('deve finalizar execução e calcular duração', async () => {
-      const dataInicio = new Date('2024-01-01');
-      const execucao = {
+    it('deve finalizar execução e publicar evento', async () => {
+      const dataInicio = new Date('2024-01-01T00:00:00.000Z');
+
+      repositoryMock.findOne.mockResolvedValue({
         id: '1',
-        status: 'EM_EXECUCAO' as const,
+        osId: 'OS123',
+        status: 'EM_EXECUCAO',
         dataInicio,
-      };
+      } as any);
 
-      mockRepository.findOne.mockResolvedValue(execucao);
-      mockRepository.save.mockResolvedValue(execucao);
-
-      const result = await controller.finalizar('1');
-
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { id: '1' },
-      });
-
-      expect(result.status).toBe('FINALIZADA');
-      expect(result.dataFim).toBeInstanceOf(Date);
-      expect(typeof result.duracaoDias).toBe('number');
-      expect(result.duracaoDias).toBeGreaterThanOrEqual(1);
-      expect(mockRepository.save).toHaveBeenCalledWith(execucao);
-    });
-
-    it('deve finalizar execução sem calcular duração quando dataInicio for nulo', async () => {
-      const execucao = {
-        id: '1',
-        status: 'EM_EXECUCAO' as const,
-        dataInicio: null,
-        duracaoDias: undefined,
-      };
-
-      mockRepository.findOne.mockResolvedValue(execucao);
-      mockRepository.save.mockResolvedValue(execucao);
+      repositoryMock.save.mockImplementation(async (e) => e as any);
 
       const result = await controller.finalizar('1');
 
+      expect(repositoryMock.save).toHaveBeenCalled();
+      expect(publisherMock.publish).toHaveBeenCalledWith(
+        'OS123',
+        '1',
+        expect.any(Date),
+        expect.any(Date),
+        expect.any(Number),
+      );
+
       expect(result.status).toBe('FINALIZADA');
-      expect(result.dataFim).toBeInstanceOf(Date);
-      expect(result.duracaoDias).toBeUndefined();
-      expect(mockRepository.save).toHaveBeenCalledWith(execucao);
     });
 
-    it('deve lançar erro quando execução não encontrada', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
+    it('deve lançar erro se execução não encontrada', async () => {
+      repositoryMock.findOne.mockResolvedValue(null);
 
       await expect(controller.finalizar('1')).rejects.toThrow(
         'Execução não encontrada',

@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { HealthController } from './health/health.controller';
 import { ExecucaoController } from './presentation/controllers/execucao.controller';
 import { FilaExecucao } from './domain/entities/fila-execucao.entity';
+import { EventBusModule } from './events/event-bus.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { FilaExecucao } from './domain/entities/fila-execucao.entity';
       logging: false,
     }),
     TypeOrmModule.forFeature([FilaExecucao]),
+    EventBusModule,
   ],
   controllers: [HealthController, ExecucaoController],
 })
