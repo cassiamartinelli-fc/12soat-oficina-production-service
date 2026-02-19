@@ -10,6 +10,8 @@ describe('ExecucaoFinalizadaPublisher', () => {
       publish: jest.fn(),
     } as any;
 
+    delete process.env.SQS_OS_QUEUE_URL;
+
     publisher = new ExecucaoFinalizadaPublisher(eventBusMock);
   });
 
@@ -29,6 +31,7 @@ describe('ExecucaoFinalizadaPublisher', () => {
         dataFim: dataFim.toISOString(),
         duracaoDias: 4,
       },
+      [],
     );
   });
 });
