@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FilaExecucao } from '../../domain/entities/fila-execucao.entity';
 import { IniciarExecucaoDto } from '../../application/dto/iniciar-execucao.dto';
+import { ExecucaoFinalizadaPublisher } from '../../events/publishers/execucao-finalizada.publisher';
 
 @ApiTags('execucoes')
 @Controller('execucoes')
@@ -11,10 +12,11 @@ export class ExecucaoController {
   constructor(
     @InjectRepository(FilaExecucao)
     private execucaoRepository: Repository<FilaExecucao>,
+    private readonly execucaoFinalizadaPublisher: ExecucaoFinalizadaPublisher,
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Iniciar execução de uma OS' })
+  @ApiOperation({ summary: 'Iniciar execução de uma OS manualmente' })
   @ApiResponse({ status: 201, description: 'Execução iniciada' })
   async iniciar(@Body() dto: IniciarExecucaoDto) {
     const execucao = this.execucaoRepository.create({
@@ -42,7 +44,7 @@ export class ExecucaoController {
   }
 
   @Post(':id/finalizar')
-  @ApiOperation({ summary: 'Finalizar execução' })
+  @ApiOperation({ summary: 'Finalizar execução e publicar evento' })
   @ApiParam({ name: 'id', description: 'ID da execução' })
   @ApiResponse({ status: 200, description: 'Execução finalizada' })
   async finalizar(@Param('id') id: string) {
@@ -57,9 +59,19 @@ export class ExecucaoController {
 
     if (execucao.dataInicio) {
       const diff = execucao.dataFim.getTime() - execucao.dataInicio.getTime();
-      execucao.duracaoDias = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      execucao.duracaoDias = Math.ceil(diff / (1000 * 60 * 60 * 24)) || 1;
     }
 
-    return this.execucaoRepository.save(execucao);
+    const salva = await this.execucaoRepository.save(execucao);
+
+    await this.execucaoFinalizadaPublisher.publish(
+      salva.osId,
+      salva.id,
+      salva.dataInicio,
+      salva.dataFim,
+      salva.duracaoDias,
+    );
+
+    return salva;
   }
 }
