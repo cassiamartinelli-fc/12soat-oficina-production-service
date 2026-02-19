@@ -12,12 +12,18 @@ export class ExecucaoFinalizadaPublisher {
     dataFim: Date,
     duracaoDias: number,
   ) {
-    await this.eventBus.publish('EXECUCAO_FINALIZADA', osId, {
+    const queues = [process.env.SQS_OS_QUEUE_URL].filter(Boolean) as string[];
+    await this.eventBus.publish(
+      'EXECUCAO_FINALIZADA',
       osId,
-      execucaoId,
-      dataInicio: dataInicio.toISOString(),
-      dataFim: dataFim.toISOString(),
-      duracaoDias,
-    });
+      {
+        osId,
+        execucaoId,
+        dataInicio: dataInicio.toISOString(),
+        dataFim: dataFim.toISOString(),
+        duracaoDias,
+      },
+      queues,
+    );
   }
 }

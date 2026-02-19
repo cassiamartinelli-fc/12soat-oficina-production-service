@@ -22,7 +22,7 @@ describe('EventBusService', () => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
 
-    process.env.SQS_QUEUE_URL = 'http://localhost/queue';
+    process.env.SQS_PRODUCTION_QUEUE_URL = 'http://localhost/queue';
     process.env.AWS_REGION = 'us-east-1';
 
     service = new EventBusService();
@@ -31,7 +31,7 @@ describe('EventBusService', () => {
   afterEach(() => {
     (service as any).polling = false;
     jest.restoreAllMocks();
-    delete process.env.SQS_QUEUE_URL;
+    delete process.env.SQS_PRODUCTION_QUEUE_URL;
     delete process.env.AWS_REGION;
   });
 
@@ -47,7 +47,7 @@ describe('EventBusService', () => {
     });
 
     it('deve logar warning quando não houver queueUrl', () => {
-      delete process.env.SQS_QUEUE_URL;
+      delete process.env.SQS_PRODUCTION_QUEUE_URL;
       const serviceNoQueue = new EventBusService();
 
       serviceNoQueue.onModuleInit();
@@ -76,7 +76,7 @@ describe('EventBusService', () => {
     });
 
     it('não deve publicar sem queueUrl', async () => {
-      delete process.env.SQS_QUEUE_URL;
+      delete process.env.SQS_PRODUCTION_QUEUE_URL;
       const serviceNoQueue = new EventBusService();
 
       await serviceNoQueue.publish('EVENT', '1', {});

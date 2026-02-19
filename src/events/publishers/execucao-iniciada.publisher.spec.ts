@@ -10,6 +10,8 @@ describe('ExecucaoIniciadaPublisher', () => {
       publish: jest.fn(),
     } as any;
 
+    delete process.env.SQS_OS_QUEUE_URL;
+
     publisher = new ExecucaoIniciadaPublisher(eventBusMock);
   });
 
@@ -26,6 +28,7 @@ describe('ExecucaoIniciadaPublisher', () => {
         execucaoId: 'EXEC1',
         dataInicio: dataInicio.toISOString(),
       },
+      [],
     );
   });
 });

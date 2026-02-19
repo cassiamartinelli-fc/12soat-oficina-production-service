@@ -22,14 +22,14 @@ export class EventBusService implements OnModuleInit {
     this.client = new SQSClient({
       region: process.env.AWS_REGION || 'us-east-1',
     });
-    this.queueUrl = process.env.SQS_QUEUE_URL || '';
+    this.queueUrl = process.env.SQS_PRODUCTION_QUEUE_URL || '';
   }
 
   onModuleInit() {
     if (this.queueUrl) {
       this.startPolling();
     } else {
-      this.logger.warn('SQS_QUEUE_URL não configurada — eventos desabilitados');
+      this.logger.warn('SQS_PRODUCTION_QUEUE_URL não configurada — eventos desabilitados');
     }
   }
 
@@ -41,8 +41,14 @@ export class EventBusService implements OnModuleInit {
     this.logger.log(`Handler registrado para: ${eventType}`);
   }
 
-  async publish(eventType: string, aggregateId: string, payload: object) {
-    if (!this.queueUrl) return;
+  async publish(
+    eventType: string,
+    aggregateId: string,
+    payload: object,
+    targetQueues?: string[],
+  ) {
+    const queues = targetQueues ?? (this.queueUrl ? [this.queueUrl] : []);
+    if (queues.length === 0) return;
 
     const event: SagaEvent = {
       eventId: randomUUID(),
@@ -54,26 +60,30 @@ export class EventBusService implements OnModuleInit {
       payload,
     } as SagaEvent;
 
-    try {
-      await this.client.send(
-        new SendMessageCommand({
-          QueueUrl: this.queueUrl,
-          MessageBody: JSON.stringify(event),
-          MessageAttributes: {
-            eventType: { DataType: 'String', StringValue: eventType },
-            source: {
-              DataType: 'String',
-              StringValue: 'production-service',
+    for (const queueUrl of queues) {
+      try {
+        await this.client.send(
+          new SendMessageCommand({
+            QueueUrl: queueUrl,
+            MessageBody: JSON.stringify(event),
+            MessageAttributes: {
+              eventType: { DataType: 'String', StringValue: eventType },
+              source: {
+                DataType: 'String',
+                StringValue: 'production-service',
+              },
             },
-          },
-        }),
-      );
-      this.logger.log(`Evento publicado: ${eventType} [${aggregateId}]`);
-    } catch (err) {
-      const error = err as Error;
-      this.logger.error(
-        `Erro ao publicar evento ${eventType}: ${error.message}`,
-      );
+          }),
+        );
+        this.logger.log(
+          `Evento publicado: ${eventType} [${aggregateId}] → ${queueUrl}`,
+        );
+      } catch (err) {
+        const error = err as Error;
+        this.logger.error(
+          `Erro ao publicar evento ${eventType}: ${error.message}`,
+        );
+      }
     }
   }
 
