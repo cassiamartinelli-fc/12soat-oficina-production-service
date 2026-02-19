@@ -6,10 +6,12 @@ export class ExecucaoIniciadaPublisher {
   constructor(private readonly eventBus: EventBusService) {}
 
   async publish(osId: string, execucaoId: string, dataInicio: Date) {
-    await this.eventBus.publish('EXECUCAO_INICIADA', osId, {
+    const queues = [process.env.SQS_OS_QUEUE_URL].filter(Boolean) as string[];
+    await this.eventBus.publish(
+      'EXECUCAO_INICIADA',
       osId,
-      execucaoId,
-      dataInicio: dataInicio.toISOString(),
-    });
+      { osId, execucaoId, dataInicio: dataInicio.toISOString() },
+      queues,
+    );
   }
 }
